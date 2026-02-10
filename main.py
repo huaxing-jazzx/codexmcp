@@ -5,12 +5,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
-from agents import Agent, Runner
+from agents import Agent, Runner, set_default_openai_key
 from agents.mcp import MCPServerStdio
 
 OUTPUT_DIR = Path(__file__).parent / "output"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_API_KEY:
+    set_default_openai_key(OPENAI_API_KEY)
+CODEX_SANDBOX_MODE = os.getenv("CODEX_SANDBOX_MODE", "workspace-write")
 
 
 async def main() -> None:
@@ -28,6 +32,9 @@ async def main() -> None:
         params={
             "command": "codex",
             "args": ["mcp-server"],
+            # Ensure codex mcp-server receives runtime auth/env vars in all environments
+            # (especially containerized deployments).
+            "env": dict(os.environ),
         },
         client_session_timeout_seconds=300,
     ) as codex_mcp_server:
@@ -40,7 +47,7 @@ async def main() -> None:
                 "You are an expert software developer. "
                 "Use the codex tool to complete coding tasks. "
                 "Always call codex with approval-policy set to 'never', "
-                "sandbox set to 'workspace-write', "
+                f"sandbox set to '{CODEX_SANDBOX_MODE}', "
                 f"and cwd set to '{cwd}' so all files are written to the output folder. "
                 "When done, summarize what was created or changed."
             ),

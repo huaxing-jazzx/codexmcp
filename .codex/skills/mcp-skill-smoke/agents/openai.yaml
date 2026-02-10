@@ -1,0 +1,4 @@
+interface:
+  display_name: "MCP Skill Smoke"
+  short_description: "Run Codex MCP skill smoke tests"
+  default_prompt: "Run the smoke script for this skill"
