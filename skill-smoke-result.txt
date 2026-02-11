@@ -1,0 +1,6 @@
+skill=mcp-skill-smoke
+timestamp_utc=2026-02-11T01:05:31Z
+nonce=60B12E8E-17CF-45DD-BE0A-2A0F142FD5C9
+pid=99258
+script_path=/Users/huaxing/Desktop/codexmcp/.codex/skills/mcp-skill-smoke/scripts/run-smoke.sh
+cwd=/Users/huaxing/Desktop/codexmcp
