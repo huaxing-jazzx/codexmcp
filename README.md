@@ -4,8 +4,12 @@ A proof-of-concept showing how to use [OpenAI Codex CLI](https://github.com/open
 
 ## How It Works
 
+This repo demonstrates two approaches to integrate Codex with the OpenAI Agents SDK:
+
+### Approach 1: MCP Server (`main.py`)
+
 ```
-User prompt  -->  OpenAI Agent (gpt-4.1)  -->  Codex MCP Server  -->  Files in output/
+User prompt  -->  OpenAI Agent  -->  MCP Protocol  -->  codex mcp-server  -->  Files in output/
 ```
 
 1. The agent receives your prompt via the OpenAI Agents SDK
@@ -15,6 +19,23 @@ User prompt  -->  OpenAI Agent (gpt-4.1)  -->  Codex MCP Server  -->  Files in o
 Codex exposes two MCP tools:
 - **`codex`** - Start a new coding session (accepts `prompt`, `approval-policy`, `sandbox`, `cwd`)
 - **`codex-reply`** - Continue an existing session (accepts `prompt`, `threadId`)
+
+### Approach 2: Experimental Codex Tool (`newway.py`)
+
+```
+User prompt  -->  OpenAI Agent  -->  codex_tool()  -->  Codex CLI directly  -->  Files in cwd
+```
+
+Uses the new `codex_tool` extension from [openai-agents-python#2320](https://github.com/openai/openai-agents-python/pull/2320) (merged). This wraps Codex CLI as a native agent tool — no MCP plumbing required.
+
+Key differences from the MCP approach:
+- **No `MCPServerStdio`** — Codex CLI is spawned directly as a subprocess
+- **Declarative config** — `ThreadOptions` and `TurnOptions` replace verbose agent instructions
+- **Built-in streaming** — `on_stream` callback for real-time Codex events (reasoning, command execution, agent messages)
+- **Thread management** — automatic, with `codex resume <thread_id>` support
+- **Skill support** — Codex-native skills (e.g. `$mcp-skill-smoke`) work via the prompt
+
+> **Note:** This extension is under `agents.extensions.experimental.codex` — the API may change.
 
 ## Prerequisites
 
@@ -42,11 +63,13 @@ echo 'OPENAI_API_KEY=sk-...' > .env
 
 ## Usage
 
+### MCP Server approach (`main.py`)
+
 ```bash
 uv run python main.py "<your prompt>"
 ```
 
-### Examples
+Examples:
 
 ```bash
 # Generate a simple game
@@ -60,6 +83,40 @@ uv run python main.py "Write a Python script that converts CSV to JSON"
 ```
 
 All generated files will be saved to the `output/` directory.
+
+### Experimental Codex Tool approach (`newway.py`)
+
+```bash
+uv run python newway.py
+```
+
+The prompt is defined inline in `newway.py`. Edit it to change the task:
+
+```python
+result = await Runner.run(
+    agent, "You must use `$mcp-skill-smoke` skill to run the smoke test and report the results."
+)
+```
+
+To invoke a Codex skill, reference it by name with the `$` prefix in the prompt. The agent instructions route skill invocations to the `codex_tool`.
+
+Configuration is declarative via `ThreadOptions` and `TurnOptions`:
+
+```python
+codex_tool(
+    sandbox_mode="workspace-write",
+    default_thread_options=ThreadOptions(
+        model="gpt-5.2-codex",
+        model_reasoning_effort="low",
+        network_access_enabled=True,
+        approval_policy="never",
+    ),
+    default_turn_options=TurnOptions(
+        idle_timeout_seconds=60,
+    ),
+    on_stream=lambda payload: print(payload),
+)
+```
 
 ## Docker (Skills Included)
 
@@ -183,7 +240,14 @@ In this repo:
 codexmcp/
 ├── .env              # OpenAI API key (not committed)
 ├── .gitignore
-├── main.py           # Agent entry point
+├── main.py           # MCP Server approach entry point
+├── newway.py         # Experimental codex_tool approach entry point
+├── .codex/
+│   └── skills/       # Codex-native skills
+│       └── mcp-skill-smoke/
+├── scripts/
+│   ├── entrypoint.sh
+│   └── test-skill-in-docker.sh
 ├── output/           # Generated files go here (not committed)
 ├── pyproject.toml
 ├── uv.lock
